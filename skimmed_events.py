@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 executor = concurrent.futures.ThreadPoolExecutor(8)
 import glob
-files = glob.glob('kaons/1/*.root')
+files = glob.glob('signal/1.0/*.root')
 
 # radius of containment for each ECal layer
 radius_beam_68 = [4.73798004, 4.80501156, 4.77108164, 4.53839401, 4.73273021,
@@ -28,7 +28,7 @@ layer_z = 240.5 + layer_dz
 
 # list of branches we want to store from the root file
 branches = []
-branch_suffix = 'v3_v12'
+branch_suffix = 'v12'
 
 # branchnames
 ecal_branch = 'EcalRecHits_{}/EcalRecHits_{}'.format(branch_suffix, branch_suffix)
@@ -42,7 +42,7 @@ for leaf in ['xpos_', 'ypos_', 'zpos_', 'energy_']:
     branches.append('{}.{}'.format(ecal_branch, leaf))
 
 # add EcalVeto branches
-for leaf in ['showerRMS_', 'epAng_', 'passesVeto_']:
+for leaf in ['showerRMS_', 'epAng_', 'passesVeto_','discValue_']:
     branches.append('{}/{}'.format(ecalVeto_branch, leaf))
 
 # add EcalSPHits and TargetSPHits branches
@@ -62,7 +62,7 @@ branches.append('EventHeader/eventNumber_')
 filenum = 0
 for filename in files:    
     print("Processing file {}".format(filename))
-    output_path = "skimmed_kaons/skimmed_kaons_{}.root".format(filenum)
+    output_path = "signal_skimmed/1.0/v12_trigger_BDT_1.0_{}.root".format(filenum)
     filenum += 1
     # use uproot and load all of the data into a dictionary: {'leaf1': [data], 'leaf2': [data], ...}
     t = uproot.open(filename)['LDMX_Events']
@@ -92,8 +92,22 @@ for filename in files:
     b4 = []
 
     NoTrajectories = []
+    BDTskim = []
+
+    nums = 0
+    for event in range(len(tree['EcalVeto_v12/discValue_'])):
+        if tree['EcalVeto_v12/discValue_'][event] > 0.99:
+            nums+=1
+        if tree['EcalVeto_v12/discValue_'][event] <= 0.99:
+            BDTskim.append(event)
+
+    print("Initial number of events: {}".format(len(tree['EcalVeto_v12/discValue_'])))
+    print("Number of events that pass the BDT: {}".format(nums))
+
+
     # loop through all of the events
     for i in range(len(tree['EventHeader/eventNumber_'])):
+
         tSPHits = {}
         ecalSPHits = {}
         for x in ['x_', 'y_', 'z_', 'px_', 'py_', 'pz_', 'pdgID_', 'trackID_']:
@@ -117,7 +131,15 @@ for filename in files:
                 r_e = j
         fiducial = max_pz_e != 0
         
-        if fiducial:
+        if (tree['EcalVeto_v12/discValue_'][i] <= 0.99):
+            etraj_sp, enorm_sp, ptraj_sp, pnorm_sp = None, None, None, None
+            BDTskim.append(i)
+            b1.append(etraj_sp)
+            b2.append(enorm_sp)
+            b3.append(pnorm_sp)
+            b4.append(ptraj_sp)
+
+        elif fiducial:
             E_beam = 4000
             target_dist = 241.5
             # positions and trajectory vectors of recoil e- at Ecal SP
@@ -144,14 +166,16 @@ for filename in files:
     trajectories['enorm_sp'] = b2
     trajectories['pnorm_sp'] = b3
     trajectories['ptraj_sp'] = b4
-    print("Events without a trajectory: {}".format(NoTrajectories))
+    #print("Events without a trajectory: {}".format(NoTrajectories))
 
     print("Getting the PDG IDs of the hits")
     # get the PDG IDs of the hits
     Pdg_ID = []
     for event in range(len(tree['EventHeader/eventNumber_'])):
+
         if event % 10000 == 0:
             print(event)
+
         # data from EcalSimHits
         sim_dict = {}
         for x in ['x_', 'y_', 'z_', 'pdgCodeContribs_', 'edepContribs_', 'incidentIDContribs_']:
@@ -165,7 +189,7 @@ for filename in files:
         rec_matched_ids = []
         rec_parent_ids = []
 
-        if event in NoTrajectories:
+        if event in NoTrajectories or event in BDTskim:
             rec_matched_ids.append([])
             
         else:
@@ -209,11 +233,14 @@ for filename in files:
     pTrajX = []
     pTrajY = []
     pTrajZ = []
+    eDep = []
 
     # loop through each event 
     for event in range(len(tree['EventHeader/eventNumber_'])):
-        if event in NoTrajectories:
+
+        if event in NoTrajectories or event in BDTskim:
             continue
+
         ecal_front = 240.5
         etraj_front = np.array(trajectories['etraj_sp']) 
         ptraj_front = np.array(trajectories['ptraj_sp']) 
@@ -245,13 +272,15 @@ for filename in files:
         hitsY = []
         hitsZ = []
         pdgids = []
+        energies = []
 
         # loop through each hit within the event
-        for hit in range(len(tree['EcalRecHits_v3_v12/EcalRecHits_v3_v12.xpos_'][event])):
-            x = tree['EcalRecHits_v3_v12/EcalRecHits_v3_v12.xpos_'][event][hit]
-            y = tree['EcalRecHits_v3_v12/EcalRecHits_v3_v12.ypos_'][event][hit]
-            z = tree['EcalRecHits_v3_v12/EcalRecHits_v3_v12.zpos_'][event][hit]
+        for hit in range(len(tree['EcalRecHits_v12/EcalRecHits_v12.xpos_'][event])):
+            x = tree['EcalRecHits_v12/EcalRecHits_v12.xpos_'][event][hit]
+            y = tree['EcalRecHits_v12/EcalRecHits_v12.ypos_'][event][hit]
+            z = tree['EcalRecHits_v12/EcalRecHits_v12.zpos_'][event][hit]
             pdgid = tree['Pdg_ID'][event][hit]
+            energy = tree['EcalRecHits_v3_v12/EcalRecHits_v3_v12.energy_'][event][hit]
             
             # loop through each layer of the ECal and check if its distance from the e- layer intercept is > corresponding layer's containment radius
             for layer in range(34):
@@ -262,11 +291,13 @@ for filename in files:
                         hitsY.append(y)
                         hitsZ.append(z)
                         pdgids.append(pdgid)
+                        energies.append(energy)
 
         eventsX.append(hitsX)
         eventsY.append(hitsY)
         eventsZ.append(hitsZ)
         pdgIDs.append(pdgids)
+        eDep.append(energies)
 
     print("Making the ROOT File")
     import ROOT as r
@@ -286,6 +317,7 @@ for filename in files:
     electronX = r.std.vector('float')()
     electronY = r.std.vector('float')()
     electronZ = r.std.vector('float')()
+    energyDep = r.std.vector('float')()
 
     tree.Branch("hitX",hitX)
     tree.Branch("hitY",hitY)
@@ -297,6 +329,7 @@ for filename in files:
     tree.Branch("electronX",electronX)
     tree.Branch("electronY",electronY)
     tree.Branch("electronZ",electronZ)
+    tree.Branch("energyDep",energyDep)
 
     for event in range(len(eventsX)):
         hitX.clear()
@@ -309,6 +342,7 @@ for filename in files:
         electronX.clear()
         electronY.clear()
         electronZ.clear()
+        energyDep.clear()
 
         for layer in range(34):
             photonX.push_back(pTrajX[event][layer])
@@ -323,6 +357,7 @@ for filename in files:
             hitY.push_back(eventsY[event][hit])
             hitZ.push_back(eventsZ[event][hit])
             pdgID.push_back(pdgIDs[event][hit])
+            energyDep.pushback(eDep[event][hit])
 
         tree.Fill()
 
