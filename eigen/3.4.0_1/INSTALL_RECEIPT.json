@@ -1,0 +1,44 @@
+{
+  "homebrew_version": "3.2.12-18-g2dd3934",
+  "used_options": [
+
+  ],
+  "unused_options": [
+
+  ],
+  "built_as_bottle": true,
+  "poured_from_bottle": true,
+  "installed_as_dependency": false,
+  "installed_on_request": true,
+  "changed_files": [
+    "share/pkgconfig/eigen3.pc"
+  ],
+  "time": 1657059585,
+  "source_modified_time": 1629319318,
+  "compiler": "gcc-5",
+  "aliases": [
+
+  ],
+  "runtime_dependencies": [
+
+  ],
+  "source": {
+    "spec": "stable",
+    "versions": {
+      "stable": "3.4.0",
+      "head": null,
+      "version_scheme": 0
+    },
+    "path": "/usr/local/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/eigen.rb",
+    "tap_git_head": "90e39f4bd54a4e1ab8ac09b5f2df98b68bf73a94",
+    "tap": "homebrew/core"
+  },
+  "arch": "x86_64",
+  "built_on": {
+    "os": "Linux",
+    "os_version": "Ubuntu 16.04.7",
+    "cpu_family": "haswell",
+    "glibc_version": "2.23",
+    "oldest_cpu_family": "core2"
+  }
+}
